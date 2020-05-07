@@ -13,8 +13,8 @@
     (let [t [(table.unpack arr)]]
       (table.insert t x)
       t))
-(fn last [arr] (. arr (length arr)))
 
+(fn last [arr] (. arr (length arr)))
 (fn partition [count step a]
     (fn iter [acc arr]
         (if
@@ -25,7 +25,11 @@
 
     (iter [] a))
 
+(fn second [arr]
+    (. arr 2))
+
 {
+ :second second
  :inc inc
  :dec dec
  :empty? empty?
@@ -33,4 +37,9 @@
  :butlast butlast
  :take take
  :apply apply
+ :partition partition
+ :last last
+ :drop drop
+ :cons cons
+ :conj conj
  }

@@ -30,7 +30,10 @@
 (local butlast utils.butlast)
 (local take utils.take)
 (local first lume.first)
+(local last utils.last)
 (local apply utils.apply)
+(local second utils.second)
+(local partition utils.partition)
 
 (fn make-snake [cells direction]
     {:cells cells :direction direction :next-direction direction})
@@ -38,16 +41,21 @@
 (fn cell [x y]
     [x y])
 
+(fn debug-cell [c r]
+    (print (. c 1) 0 r)
+    (print (. c 2) 20 r))
+
 (fn wrap-cell [cell]
     "game field is a torus"
     [(% (. cell 1) *game-width*)
      (% (. cell 2) *game-height*)])
 
 (fn sum-cell [c1 c2]
-    (wrap-cell (cell (+ (. c1 1)
-                        (. c2 1))
-                     (+ (. c1 2)
-                        (. c2 2)))))
+    (cell (+ (. c1 1)
+             (. c2 1))
+          (+ (. c1 2)
+             (. c2 2))))
+
 (fn sub-cell [c1 c2]
     (cell (- (. c1 1)
              (. c2 1))
@@ -116,13 +124,19 @@
           s
           (move snake))))
 
+(fn out-of-bounds? [cell]
+    (or (not (< 0 (. cell 1) *game-width*))
+        (not (< -1 (. cell 2) *game-height*))))
+
 (fn next-game [game]
     (let [ns (next-snake (. game :snake) (. game :food))]
       {
        :snake ns
        :food (next-food (snake-head ns) (. game :food))
-       :over (lume.any (snake-body ns)
-                       (partial cell-equal? (snake-head ns)))
+       :over (or
+              (out-of-bounds? (snake-head ns))
+              (lume.any (snake-body ns)
+                        (partial cell-equal? (snake-head ns))))
        :score (inc (. game :score))
        }))
 
@@ -139,32 +153,78 @@
          (* *cell-size* (. cell 1))
          (* *cell-size* (inc (. cell 2)))))
 
-(local render-snakecell (partial render-sprite 0))
+(local render-snakecell
+       (partial render-sprite 0))
+
 (local render-food (partial render-sprite 1))
 
 (fn status-bar [score]
     (rect 0 0 240 *cell-size* 0)
     (print (.. "SCORE: " score)  0 0 4))
 
-(fn debug-cell [c r]
-    (print (. c 1) 0 r)
-    (print (. c 2) 20 r))
+
+
+(fn direction-of-segment [triple]
+    (let [v1 (sub-cell (first triple) (. triple 2))
+             v2 (sub-cell (. triple 3) (. triple 2))]
+      (match [v1 v2]
+             [[1 0] [-1 0]] :horizontal
+             [[-1 0] [1 0]] :horizontal
+             [[0 1] [0 -1]] :vertical
+             [[0 -1] [0 1]] :vertical
+             [[0 1] [-1 0]] :down-left
+             [[-1 0] [0 1]] :down-left
+             [[1 0] [0 1]] :down-right
+             [[0 1] [1 0]] :down-right
+             [[0 -1] [-1 0]] :up-left
+             [[-1 0] [0 -1]] :up-left
+             [[1 0] [0 -1]] :up-right
+             [[0 -1] [1 0]] :up-right)))
+
+(fn cell-x [c]
+    (* *cell-size* (. c 1)))
+
+(fn cell-y [c]
+    (* *cell-size* (inc (. c 2))))
+
+(fn render-body [triple]
+    (let [direction (direction-of-segment triple)
+                    c (. triple 2)]
+      (match direction
+             :horizontal (spr 17 (cell-x c) (cell-y c) 7 1 0 0)
+             :vertical (spr 17 (cell-x c) (cell-y c) 7 1 0 1)
+             :down-left (spr 18 (cell-x c) (cell-y c) 7 1 0 0)
+             :down-right (spr 18 (cell-x c) (cell-y c) 7 1 1 0)
+             :up-left (spr 18 (cell-x c) (cell-y c) 7 1 2 0)
+             :up-right (spr 18 (cell-x c) (cell-y c) 7 1 3 0)
+             _ (render-sprite 0 c))))
 
 (fn render-head [headparts]
     (let [rot (match (apply sub-cell headparts)
                 [0 -1] 0
                 [1 0] 1
                 [0 1] 2
-                [-1 0] 3)]
-      (spr 16
-           (* *cell-size* (. (first headparts) 1))
-           (* *cell-size* (inc (. (first headparts) 2)))
-           1 1 0 rot)))
+                [-1 0] 3)
+              c (first headparts)]
+      (spr 16 (cell-x c) (cell-y c) 1 1 0 rot)))
+
+(fn render-tail [tail]
+    (let [c (last tail)
+            v (sub-cell (first tail) c)]
+      (debug-cell v 10)
+      (debug-cell v 20)
+      (match v
+             [-1 0] (spr 19 (cell-x c) (cell-y c) 7 1 0 0)
+             [1 0] (spr 19 (cell-x c) (cell-y c) 7 1 0 2)
+             [0 1] (spr 19 (cell-x c) (cell-y c) 7 1 0 3)
+             [0 -1] (spr 19 (cell-x c) (cell-y c) 7 1 0 1))))
 
 (fn render-snake [snake]
-    (lume.each (rest (. snake :cells))
-               render-snakecell)
-    (render-head (lume.slice (. snake :cells) 1 2)))
+    (let [cells (. snake :cells)]
+      (lume.each (butlast (butlast (partition 3 1 cells)))
+                 render-body)
+      (render-tail (lume.slice cells (dec (length cells)) (length cells)) )
+      (render-head (utils.take 2 cells))))
 
 (fn render-game [game]
     (status-bar (. game :score))
