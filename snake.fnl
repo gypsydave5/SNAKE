@@ -1,35 +1,36 @@
 ;; script: fennel
 (global lume (require :lume))
+(global utils (require :utils))
 
 (global *cell-size* 8)
 (global *game-width* (/ 240 *cell-size*))
 (global *game-height* (- (/ 136 *cell-size*) 1))
-
 
 (macros
  {
   :incf (fn [a ?n]
             "Shortcut for increment. Increments a by n"
             `(set ,a (+ ,a (or ,?n 1))))
-
   :decf (fn [a ?n]
             "Shortcut for decrement Decrements a by n"
             `(set ,a (- ,a (or ,?n 1))))
-
   :decg (fn [a ?n]
             "Shortcut for global decrement. Decrements a by n"
             `(global ,a (- ,a (or ,?n 1))))
-
   :incg (fn [a ?n]
             "Shortcut for global increment. Increments a by n"
             `(global ,a (+ ,a (or ,?n 1))))
   })
 
-(fn inc [x] (+ x 1))
-(fn dec [x] (- x 1))
-(fn empty? [arr] (= (length arr) 0))
-(fn rest [arr] (lume.slice arr 2 (length arr)))
-(fn butlast [arr] (lume.slice arr 1 (dec (length arr))))
+(local empty? utils.empty?)
+(local rest utils.rest)
+(local inc utils.inc)
+(local dec utils.dec)
+(local rest utils.rest)
+(local butlast utils.butlast)
+(local take utils.take)
+(local first lume.first)
+(local apply utils.apply)
 
 (fn make-snake [cells direction]
     {:cells cells :direction direction :next-direction direction})
@@ -47,6 +48,11 @@
                         (. c2 1))
                      (+ (. c1 2)
                         (. c2 2)))))
+(fn sub-cell [c1 c2]
+    (cell (- (. c1 1)
+             (. c2 1))
+          (- (. c1 2)
+             (. c2 2))))
 
 (fn random-cell []
     [(lume.round (lume.random (dec *game-width*)))
@@ -76,23 +82,24 @@
         (tset snake :next-direction dir)))
 
 (fn snake-head [snake]
-    (. snake :cells (length (. snake :cells))))
+    (first (. snake :cells)))
 
 (fn snake-body [snake]
-    (butlast (. snake :cells)))
+    (rest (. snake :cells)))
 
 (fn grow [snake]
-    (let [head (lume.last (. snake :cells))]
+    (let [head (snake-head snake)]
       {
-       :cells (lume.concat (. snake :cells) [(sum-cell head (. snake :next-direction))])
-              :direction (. snake :next-direction)
-              :next-direction (. snake :next-direction)
-              }))
+       :cells (lume.concat [(sum-cell (snake-head snake) (. snake :next-direction))]
+                           (. snake :cells))
+       :direction (. snake :next-direction)
+       :next-direction (. snake :next-direction)
+       }))
 
 (fn move [snake]
     (let [s  (grow snake)]
       {
-       :cells (rest (. s :cells))
+       :cells (butlast (. s :cells))
        :direction (. s :direction)
        :next-direction (. s :next-direction)
        }))
@@ -121,7 +128,7 @@
 
 (fn new-game []
     {
-     :snake (make-snake [[5 5] [5 6] [5 7]] (. *directions* :up))
+     :snake (make-snake [[5 7] [5 6] [5 5]] (. *directions* :up))
      :food [(random-cell)]
      :over false
      :score 0
@@ -139,12 +146,31 @@
     (rect 0 0 240 *cell-size* 0)
     (print (.. "SCORE: " score)  0 0 4))
 
+(fn debug-cell [c r]
+    (print (. c 1) 0 r)
+    (print (. c 2) 20 r))
+
+(fn render-head [headparts]
+    (let [rot (match (apply sub-cell headparts)
+                [0 -1] 0
+                [1 0] 1
+                [0 1] 2
+                [-1 0] 3)]
+      (spr 16
+           (* *cell-size* (. (first headparts) 1))
+           (* *cell-size* (inc (. (first headparts) 2)))
+           1 1 0 rot)))
+
+(fn render-snake [snake]
+    (lume.each (rest (. snake :cells))
+               render-snakecell)
+    (render-head (lume.slice (. snake :cells) 1 2)))
+
 (fn render-game [game]
     (status-bar (. game :score))
     (lume.each (. game :food)
                render-food)
-    (lume.each (. game :snake :cells)
-               render-snakecell))
+    (render-snake (. game :snake)))
 
 (global *game* (new-game))
 (global *t* 0)
@@ -198,7 +224,7 @@
 ;; <TILES>
 ;; 000:77666677765c666765cc66666555666665666666666666667666666777666677
 ;; 001:7777677777776777777666777322766732223267322322277223222777772277
-;; 016:77777777777666667766566c76625666222256667766666c7776666677777777
+;; 016:7772777777726777776266777662266776655567766666677666666776c66c67
 ;; 017:7777777766666666666666666666666666666666666666666666666677777777
 ;; 018:7777777766666777666666776666666766666667666666676666666776666667
 ;; 019:7777777766667777666667776666666766666677666667776666777777777777
