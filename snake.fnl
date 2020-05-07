@@ -125,7 +125,7 @@
           (move snake))))
 
 (fn out-of-bounds? [cell]
-    (or (not (< 0 (. cell 1) *game-width*))
+    (or (not (< -1 (. cell 1) *game-width*))
         (not (< -1 (. cell 2) *game-height*))))
 
 (fn next-game [game]
@@ -208,11 +208,18 @@
               c (first headparts)]
       (spr 16 (cell-x c) (cell-y c) 1 1 0 rot)))
 
+(fn render-dead-head [headparts]
+    (let [rot (match (apply sub-cell headparts)
+                [0 -1] 0
+                [1 0] 1
+                [0 1] 2
+                [-1 0] 3)
+              c (first headparts)]
+      (spr 20 (cell-x c) (cell-y c) 1 1 0 rot)))
+
 (fn render-tail [tail]
     (let [c (last tail)
             v (sub-cell (first tail) c)]
-      (debug-cell v 10)
-      (debug-cell v 20)
       (match v
              [-1 0] (spr 19 (cell-x c) (cell-y c) 7 1 0 0)
              [1 0] (spr 19 (cell-x c) (cell-y c) 7 1 0 2)
@@ -226,11 +233,20 @@
       (render-tail (lume.slice cells (dec (length cells)) (length cells)) )
       (render-head (utils.take 2 cells))))
 
+(fn render-dead-snake [snake]
+    (let [cells (. snake :cells)]
+      (lume.each (butlast (butlast (partition 3 1 cells)))
+                 render-body)
+      (render-tail (lume.slice cells (dec (length cells)) (length cells)))
+      (render-dead-head (rest (utils.take 3 cells)))))
+
 (fn render-game [game]
     (status-bar (. game :score))
     (lume.each (. game :food)
                render-food)
-    (render-snake (. game :snake)))
+    (if (. game :over)
+        (render-dead-snake (. game :snake))
+        (render-snake (. game :snake))))
 
 (global *game* (new-game))
 (global *t* 0)
@@ -288,9 +304,11 @@
 ;; 017:7777777766666666666666666666666666666666666666666666666677777777
 ;; 018:7777777766666777666666776666666766666667666666676666666776666667
 ;; 019:7777777766667777666667776666666766666677666667776666777777777777
+;; 020:222c222222222222762222677626226776262667766626677666266776666667
 ;; 032:0666666006666660066666600666666006666660066666600666666006666660
 ;; </TILES>
 
 ;; <PALETTE>
 ;; 000:1a1c2c5d275db13e53ef7d57ffcd75a7f07038b76425717929366f3b5dc941a6f673eff7f4f4f494b0c2566c86333c57
 ;; </PALETTE>
+
